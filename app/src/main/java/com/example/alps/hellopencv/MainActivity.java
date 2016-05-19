@@ -1,20 +1,22 @@
 package com.example.alps.hellopencv;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.app.Activity;
-
-import java.io.BufferedOutputStream;
+import android.widget.Toast;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -23,8 +25,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int PICK_FROM_CAMERA = 0;
     private static final int PICK_FROM_ALBUM = 1;
     private static final int CROP_FROM_IMAGE = 2;
-    private String absoultePath;
     ImageView img_main;
+    ImageButton img_rotation;
+    public int mDegree =0;
+    Bitmap mains;
 
     private Uri mImageCaptureUri;
     @Override
@@ -34,11 +38,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Button img_call = (Button)findViewById(R.id.img_call);
         Button img_select = (Button)findViewById(R.id.img_select);
         Button img_save = (Button)findViewById(R.id.img_save);
+
         img_main = (ImageView)findViewById(R.id.img_main);
+        img_rotation = (ImageButton)findViewById(R.id.img_rotation);
 
         img_call.setOnClickListener(this);
         img_select.setOnClickListener(this);
         img_save.setOnClickListener(this);
+        img_rotation.setOnClickListener(this);
     }
     @Override
     public void onClick(View v) {
@@ -74,13 +81,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         if(v.getId()==R.id.img_save)
         {
-
+            //이미지저장 구간
+            if(mains == null)Toast.makeText(this,"이미지 없이 저장 할 수 없습니다",Toast.LENGTH_SHORT).show();
+            else saveImage(mains);
         }
         if(v.getId()==R.id.img_select)
         {
-
+            //영상처리 구간
         }
+        if(v.getId()==R.id.img_rotation)
+        {
+            //이미지 회전구간
+            if(mains == null)Toast.makeText(this,"이미지를 선택해주세요~~~!!!",Toast.LENGTH_SHORT).show();
 
+            else
+            {
+                mDegree += 90;
+                img_main.setImageBitmap(rotateImage(mains, mDegree));
+            }
+        }
     }
 
     public void AlbumAction()
@@ -89,37 +108,51 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         intent.setType(MediaStore.Images.Media.CONTENT_TYPE);
         startActivityForResult(intent,PICK_FROM_ALBUM);
     }
-
-    private void storeCorpImage(Bitmap bitmap, String filePath)
+    //이미지 저장
+    public void saveImage(Bitmap bm)
     {
-        String dirPath = Environment.getExternalStorageDirectory().getAbsolutePath()+"/SmartWheel";
-        File directory_SmartWheel = new File(dirPath);
+        File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath()
+        + "/lastImage.jpg");
 
-        if(!directory_SmartWheel.exists())
-            directory_SmartWheel.mkdir();
+        //File dir = file.getParentFile();
+        //if(!dir.isDirectory())
+        //    dir.mkdirs();
+        //if(file.isDirectory())
+        //    file.delete();
 
-        File copyFile = new File(filePath);
-        BufferedOutputStream out = null;
+        //if(!file.exists())
+        //    file.mkdir();
 
-        try{
-            copyFile.createNewFile();
-            out = new BufferedOutputStream(new FileOutputStream(copyFile));
-            bitmap.compress(Bitmap.CompressFormat.JPEG,100,out);
 
-            sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(copyFile)));
 
-            out.flush();
+        try {
+            //file.createNewFile();
+            FileOutputStream out = new FileOutputStream(file);
+            bm.compress(Bitmap.CompressFormat.JPEG, 92, out);
+            Toast.makeText(this,"저장 완료~!",Toast.LENGTH_SHORT).show();
             out.close();
-        }catch(Exception e){e.printStackTrace();}
+        } catch (Exception e) {
+            file.delete();
+            e.printStackTrace();}
+
     }
 
+    // 이미지 회전 함수
+    public Bitmap rotateImage(Bitmap src, float degree) {
+        // Matrix 객체 생성
+        Matrix matrix = new Matrix();
+        // 회전 각도 셋팅
+        matrix.postRotate(degree);
+        // 이미지와 Matrix 를 셋팅해서 Bitmap 객체 생성
+        return Bitmap.createBitmap(src, 0, 0, src.getWidth(),
+                src.getHeight(), matrix, true);
+    }
     public void PhotoAction()
     {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
         String uri = "tmp_" + String.valueOf(System.currentTimeMillis())+".jpg";
         mImageCaptureUri = Uri.fromFile(new File(Environment.getExternalStorageDirectory(),uri));
-
         intent.putExtra(MediaStore.EXTRA_OUTPUT,mImageCaptureUri);
         startActivityForResult(intent,PICK_FROM_CAMERA);
     }
@@ -136,6 +169,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 mImageCaptureUri = data.getData();
                 try {
                     Bitmap bm = MediaStore.Images.Media.getBitmap(getContentResolver(), mImageCaptureUri);
+                    mains = bm;
                     img_main.setImageBitmap(bm);
                 } catch (IOException e) {e.printStackTrace();}
                 break;
@@ -161,15 +195,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 final Bundle extras = data.getExtras();
 
-                String filePath = Environment.getExternalStorageDirectory().getAbsolutePath()+"/SmartWheel"+System.currentTimeMillis()+".jpg";
-
                 if(extras != null)
                 {
                     Bitmap photo = extras.getParcelable("data");
+                    mains = photo;
                     img_main.setImageBitmap(photo);
-
-                    storeCorpImage(photo,filePath);
-                    absoultePath = filePath;
                     break;
                 }
 
