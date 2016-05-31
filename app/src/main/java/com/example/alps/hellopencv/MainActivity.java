@@ -10,16 +10,31 @@ import android.provider.MediaStore;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    public static final String TAG = "OpenCV-Test";
+
     private static final int PICK_FROM_CAMERA = 0;
     private static final int PICK_FROM_ALBUM = 1;
     private static final int CROP_FROM_IMAGE = 2;
@@ -27,6 +42,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     ImageButton img_rotation;
     public int mDegree =0;
     Bitmap mains;
+
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch(status) {
+                case LoaderCallbackInterface.SUCCESS: {
+                    Log.i(TAG, "OpenCV loaded successfully");
+                }
+                break;
+                default: {
+                    super.onManagerConnected(status);
+                }
+                break;
+            }
+        }
+    };
 
     private Uri mImageCaptureUri;
     @Override
@@ -86,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if(v.getId()==R.id.img_select)
         {
             //영상처리 구간
+            imageProcess();
         }
         if(v.getId()==R.id.img_rotation)
         {
@@ -100,6 +132,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    public void imageProcess() {
+        //gray.
+        if(mains == null)
+        {
+            if(mains == null)Toast.makeText(this,"이미지를!!!!!!!",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        else
+        {
+            Mat src = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
+            Mat dst = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
+            Utils.bitmapToMat(mains, src);
+
+            //******************************************************
+            Imgproc.cvtColor(src, dst, Imgproc.COLOR_RGB2GRAY);
+            //Imgproc.blur(src, dst, new Size(50, 50));
+
+            //******************************************************
+
+            Bitmap bitmap = Bitmap.createBitmap(mains.getWidth(), mains.getHeight(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(dst, bitmap);
+            mains = bitmap;
+            img_main.setImageBitmap(mains);
+            img_main.invalidate();
+        }
+    }
+
     public void AlbumAction()
     {
         Intent intent = new Intent(Intent.ACTION_PICK);
@@ -111,17 +170,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     {
         File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath()
         + "/lastImage.jpg");
-
-        //File dir = file.getParentFile();
-        //if(!dir.isDirectory())
-        //    dir.mkdirs();
-        //if(file.isDirectory())
-        //    file.delete();
-
-        //if(!file.exists())
-        //    file.mkdir();
-
-
 
         try {
             //file.createNewFile();
@@ -204,6 +252,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 File f = new File(mImageCaptureUri.getPath());
                 if(f.exists()) f.delete();
             }
+        }
+    }
+
+    protected void onResume() {
+        super.onResume();
+        if(!OpenCVLoader.initDebug()) {
+            Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
+        } else {
+            Log.d(TAG, "OpenCV library found inside package. Using it!");
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
         }
     }
 }
