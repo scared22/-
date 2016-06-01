@@ -31,6 +31,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     public static final String TAG = "OpenCV-Test";
@@ -38,10 +39,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int PICK_FROM_CAMERA = 0;
     private static final int PICK_FROM_ALBUM = 1;
     private static final int CROP_FROM_IMAGE = 2;
+    Mat src,dst;
     ImageView img_main;
     ImageButton img_rotation;
     public int mDegree =0;
-    Bitmap mains;
+    Bitmap mains,tempmains;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -141,21 +143,44 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         else
         {
-            Mat src = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
-            Mat dst = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
+            mains = tempmains;
+            src = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
+            dst = new Mat(mains.getHeight(), mains.getWidth(), CvType.CV_8UC4);
             Utils.bitmapToMat(mains, src);
-
-            //******************************************************
-            Imgproc.cvtColor(src, dst, Imgproc.COLOR_RGB2GRAY);
-            //Imgproc.blur(src, dst, new Size(50, 50));
-
-            //******************************************************
-
-            Bitmap bitmap = Bitmap.createBitmap(mains.getWidth(), mains.getHeight(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(dst, bitmap);
-            mains = bitmap;
-            img_main.setImageBitmap(mains);
-            img_main.invalidate();
+            //dialog 생성
+            final String items[] = { "grey", "hsv", "blur","GaussianBlur","dilate"};
+            AlertDialog.Builder ab = new AlertDialog.Builder(this);
+            ab.setTitle("이미지처리목록");
+            ab.setSingleChoiceItems(items, 0,
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            // 각 리스트를 선택했을때
+                        }
+                    }).setPositiveButton("Ok",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            // OK 버튼 클릭시 , 여기서 선택한 값을 메인 Activity 로 넘기면 된다.
+                            int selectedPosition = ((AlertDialog)dialog).getListView().getCheckedItemPosition();
+                            if(selectedPosition == 0)Imgproc.cvtColor(src, dst, Imgproc.COLOR_RGB2GRAY);
+                            else if(selectedPosition == 1)Imgproc.cvtColor(src,dst,Imgproc.COLOR_RGB2HSV);
+                            else if(selectedPosition == 2)Imgproc.blur(src, dst, new Size(50, 50));
+                            else if(selectedPosition == 3)Imgproc.GaussianBlur(src,dst,new Size(15,15),15);
+                            else  Imgproc.dilate(src, dst, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(4,4)));
+                            Bitmap bitmap = Bitmap.createBitmap(mains.getWidth(), mains.getHeight(), Bitmap.Config.ARGB_8888);
+                            Utils.matToBitmap(dst, bitmap);
+                            mains = bitmap;
+                            img_main.setImageBitmap(mains);
+                            img_main.invalidate();
+                        }
+                    }).setNegativeButton("Cancel",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            // Cancel 버튼 클릭시
+                            mains = tempmains;
+                            img_main.setImageBitmap(mains);
+                        }
+                    });
+            ab.show();
         }
     }
 
@@ -216,6 +241,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 try {
                     Bitmap bm = MediaStore.Images.Media.getBitmap(getContentResolver(), mImageCaptureUri);
                     mains = bm;
+                    tempmains = bm;
                     img_main.setImageBitmap(bm);
                 } catch (IOException e) {e.printStackTrace();}
                 break;
@@ -245,6 +271,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 {
                     Bitmap photo = extras.getParcelable("data");
                     mains = photo;
+                    tempmains = photo;
                     img_main.setImageBitmap(photo);
                     break;
                 }
